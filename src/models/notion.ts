@@ -8,7 +8,7 @@ export type NotionEmailIntakePage = {
 
 export const EmailIntakeRequestBody = z.object({
 	name: z.string().optional(),
-	email: z.string(),
+	email: z.string().email(),
 	message: z.string().optional(),
 });
 

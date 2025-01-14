@@ -4,6 +4,7 @@ import { EmailIntakeRequestBody } from './models/notion';
 export interface Env {
 	NOTION_API_KEY: string;
 	NOTION_EMAIL_INTAKE_DATABASE_ID: string;
+	ALLOWED_ORIGINS: string;
 }
 
 type ResponseBody =
@@ -13,35 +14,38 @@ type ResponseBody =
 	}
 	| { ok: true };
 
-const corsHeaders = {
+const getCorsHeaders = (allowedOrigins: string) => ({
 	'Access-Control-Allow-Methods': 'POST',
 	'Access-Control-Allow-Headers': '*',
-	'Access-Control-Allow-Origin': 'http://localhost:5173',
-};
+	'Access-Control-Allow-Origin': allowedOrigins,
+});
 
-const jsonResponse = (status: number, body: ResponseBody) => {
-	if (!body.ok) {
-		const { ok, error } = body;
+const getJsonResponder = (env: Env) => {
+	const headers = getCorsHeaders(env.ALLOWED_ORIGINS);
+	return (status: number, body: ResponseBody) => {
+		if (!body.ok) {
+			const { ok, error } = body;
+			return Response.json(
+				{
+					ok,
+					error,
+				},
+				{ status, headers },
+			);
+		}
+
+		const { ok } = body;
 		return Response.json(
 			{
 				ok,
-				error,
 			},
-			{ status, headers: corsHeaders },
+			{ status, headers },
 		);
-	}
-
-	const { ok } = body;
-	return Response.json(
-		{
-			ok,
-		},
-		{ status, headers: corsHeaders },
-	);
+	};
 };
-
 export default {
 	async fetch(request, env, _ctx): Promise<Response> {
+		const jsonResponse = getJsonResponder(env);
 		if (request.method !== 'POST') {
 			return jsonResponse(405, { ok: false, error: 'expecting POST' });
 		}
