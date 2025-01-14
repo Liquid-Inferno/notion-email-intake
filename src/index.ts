@@ -6,23 +6,54 @@ export interface Env {
 	NOTION_EMAIL_INTAKE_DATABASE_ID: string;
 }
 
+type ResponseBody =
+	| {
+		ok: false;
+		error: string;
+	}
+	| { ok: true };
+
+const corsHeaders = {
+	'Access-Control-Allow-Methods': 'POST',
+	'Access-Control-Allow-Headers': '*',
+	'Access-Control-Allow-Origin': 'http://localhost:5173',
+};
+
+const jsonResponse = (status: number, body: ResponseBody) => {
+	if (!body.ok) {
+		const { ok, error } = body;
+		return Response.json(
+			{
+				ok,
+				error,
+			},
+			{ status, headers: corsHeaders },
+		);
+	}
+
+	const { ok } = body;
+	return Response.json(
+		{
+			ok,
+		},
+		{ status, headers: corsHeaders },
+	);
+};
+
 export default {
 	async fetch(request, env, _ctx): Promise<Response> {
 		if (request.method !== 'POST') {
-			return Response.json(
-				{ ok: false, error: 'expecting POST' },
-				{ status: 405 },
-			);
+			return jsonResponse(405, { ok: false, error: 'expecting POST' });
 		}
 
 		try {
 			const body = await request.json();
 			const parseResult = await EmailIntakeRequestBody.safeParseAsync(body);
 			if (!parseResult.success) {
-				return Response.json(
-					{ ok: false, error: parseResult.error },
-					{ status: 422 },
-				);
+				return jsonResponse(422, {
+					ok: false,
+					error: parseResult.error.toString(),
+				});
 			}
 
 			const { email, message, name } = parseResult.data;
@@ -43,18 +74,12 @@ export default {
 				);
 			} catch (error) {
 				console.error(error);
-				return Response.json(
-					{ ok: false, error: 'error fetching Notion' },
-					{ status: 500 },
-				);
+				return jsonResponse(500, { ok: false, error: 'error fetching Notion' });
 			}
 
-			return Response.json({ ok: true }, { status: 200 });
+			return jsonResponse(200, { ok: true });
 		} catch {
-			return Response.json(
-				{ ok: false, error: 'invalid JSON body' },
-				{ status: 422 },
-			);
+			return jsonResponse(422, { ok: false, error: 'invalid JSON body' });
 		}
 	},
 } satisfies ExportedHandler<Env>;
